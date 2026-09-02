@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Ambiente virtual
+venv/
+.venv/
+
+# Banco SQLite local
+*.sqlite3
+
+# Variáveis de ambiente
+.env
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Node / React (futuramente)
+node_modules/
+dist/
+build/
