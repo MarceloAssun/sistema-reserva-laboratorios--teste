@@ -6,7 +6,7 @@ def user_in_group(user, group_name):
 
 
 def is_admin(user):
-    return user.is_staff or user_in_group(user, 'Administradores')
+    return user.is_superuser or user_in_group(user, 'Administradores')
 
 
 class IsAdminGroup(BasePermission):

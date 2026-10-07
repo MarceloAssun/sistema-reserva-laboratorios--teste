@@ -16,35 +16,21 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+from .views import HealthCheckView
 
 
 class LoginView(TokenObtainPairView):
     pass
 
 
-class CurrentUserView(APIView):
-    permission_classes = (IsAuthenticated,)
-
-    def get(self, request):
-        groups = list(request.user.groups.values_list('name', flat=True))
-        return Response({
-            'id': request.user.id,
-            'username': request.user.username,
-            'email': request.user.email,
-            'name': request.user.get_full_name() or request.user.username,
-            'groups': groups,
-            'is_staff': request.user.is_staff,
-        })
-
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/health/', HealthCheckView.as_view(), name='health-check'),
     path('api/auth/login/', LoginView.as_view(), name='token_obtain_pair'),
     path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/auth/me/', CurrentUserView.as_view(), name='current_user'),
+    path('api/', include('usuarios.urls')),
     path('api/', include('laboratorios.urls')),
     path('api/', include('reservas.urls')),
 ]

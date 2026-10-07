@@ -9,7 +9,7 @@ class Command(BaseCommand):
     help = 'Cria grupos, usuários e laboratórios para demonstração.'
 
     def add_arguments(self, parser):
-        parser.add_argument('--password', default='demo1234', help='Senha dos usuários de demonstração.')
+        parser.add_argument('--password', required=True, help='Senha local dos usuários de demonstração.')
 
     def handle(self, *args, **options):
         password = options['password']
@@ -27,7 +27,7 @@ class Command(BaseCommand):
             user.set_password(password)
             user.is_staff = group_name == 'Administradores'
             user.save()
-            user.groups.add(groups[group_name])
+            user.groups.set((groups[group_name],))
             self.stdout.write(f'{"Criado" if created else "Atualizado"}: {username}')
 
         laboratories = (

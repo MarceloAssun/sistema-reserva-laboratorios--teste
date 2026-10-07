@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from laboratorios.models import Laboratorio
+from laboratorios.serializers import LaboratorioSerializer
 from .models import Reserva
 from .permissions import user_in_group
 from .services import reservas_aprovadas_conflitantes
@@ -9,21 +9,25 @@ from .services import reservas_aprovadas_conflitantes
 
 class ReservaSerializer(serializers.ModelSerializer):
     laboratorio_nome = serializers.CharField(source='laboratorio.nome', read_only=True)
+    laboratorio_detalhes = LaboratorioSerializer(source='laboratorio', read_only=True)
     professor_nome = serializers.SerializerMethodField()
+    professor_detalhes = serializers.SerializerMethodField()
     status_label = serializers.CharField(source='get_status_display', read_only=True)
 
     class Meta:
         model = Reserva
         fields = (
-            'id', 'laboratorio', 'laboratorio_nome', 'professor', 'professor_nome',
+            'id', 'laboratorio', 'laboratorio_nome', 'laboratorio_detalhes',
+            'professor', 'professor_nome', 'professor_detalhes',
             'data', 'hora_inicio', 'hora_fim', 'status', 'status_label',
             'observacao', 'data_solicitacao',
         )
         read_only_fields = ('professor', 'status', 'data_solicitacao')
 
+    def get_professor_detalhes(self, obj):
+        return {'id': obj.professor_id, 'nome': obj.professor.get_full_name() or obj.professor.username}
+
     def get_professor_nome(self, obj):
-        if not obj.professor:
-            return 'Professor não informado'
         return obj.professor.get_full_name() or obj.professor.username
 
     def validate(self, attrs):
@@ -47,8 +51,6 @@ class ReservaSerializer(serializers.ModelSerializer):
         instance.data = data
         instance.hora_inicio = hora_inicio
         instance.hora_fim = hora_fim
-        if reservas_aprovadas_conflitantes(instance).exists():
-            raise serializers.ValidationError('O horário informado já está ocupado.')
         return attrs
 
     def create(self, validated_data):

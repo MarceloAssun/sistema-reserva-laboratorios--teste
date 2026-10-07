@@ -20,7 +20,7 @@ class Reserva(models.Model):
     professor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT
-        , related_name='reservas', null=True, blank=True
+        , related_name='reservas'
     )
 
     data = models.DateField()
@@ -36,6 +36,15 @@ class Reserva(models.Model):
             raise ValidationError({'hora_fim': 'A hora final deve ser posterior à hora inicial.'})
         if not self.laboratorio.ativo:
             raise ValidationError({'laboratorio': 'O laboratório está inativo.'})
+
+    class Meta:
+        ordering = ('-data', '-hora_inicio')
+        constraints = (
+            models.CheckConstraint(
+                condition=models.Q(hora_fim__gt=models.F('hora_inicio')),
+                name='reserva_hora_fim_apos_inicio',
+            ),
+        )
 
     def __str__(self):
         return f"Reserva {self.id} - {self.laboratorio.nome} - {self.data} {self.hora_inicio}-{self.hora_fim}"

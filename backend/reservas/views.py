@@ -1,5 +1,5 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
-from rest_framework import permissions, viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -18,9 +18,22 @@ class ReservaViewSet(viewsets.ModelViewSet):
 
 	def get_queryset(self):
 		queryset = Reserva.objects.select_related('laboratorio', 'professor').order_by('-data', '-hora_inicio')
-		if is_admin(self.request.user):
-			return queryset
-		return queryset.filter(professor=self.request.user)
+		if not is_admin(self.request.user):
+			queryset = queryset.filter(professor=self.request.user)
+		params = self.request.query_params
+		if params.get('status'):
+			queryset = queryset.filter(status=params['status'])
+		if params.get('laboratorio'):
+			queryset = queryset.filter(laboratorio_id=params['laboratorio'])
+		if params.get('professor') and is_admin(self.request.user):
+			queryset = queryset.filter(professor_id=params['professor'])
+		if params.get('data'):
+			queryset = queryset.filter(data=params['data'])
+		if params.get('data_inicio'):
+			queryset = queryset.filter(data__gte=params['data_inicio'])
+		if params.get('data_fim'):
+			queryset = queryset.filter(data__lte=params['data_fim'])
+		return queryset
 
 	def get_permissions(self):
 		if self.action == 'create':
@@ -36,7 +49,7 @@ class ReservaViewSet(viewsets.ModelViewSet):
 		try:
 			reserva = aprovar_reserva(self.get_object())
 		except DjangoValidationError as exc:
-			raise ValidationError(exc.messages)
+			return Response({'detail': exc.messages[0]}, status=status.HTTP_409_CONFLICT)
 		return Response(self.get_serializer(reserva).data)
 
 	@action(detail=True, methods=('post',))

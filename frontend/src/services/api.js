@@ -10,6 +10,30 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let refreshing;
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const original = error.config;
+    if (error.response?.status === 401 && !original?._retry && localStorage.getItem('refresh_token')) {
+      original._retry = true;
+      refreshing ||= axios.post(`${api.defaults.baseURL}/auth/refresh/`, {
+        refresh: localStorage.getItem('refresh_token'),
+      }).finally(() => { refreshing = null; });
+      try {
+        const { data } = await refreshing;
+        localStorage.setItem('access_token', data.access);
+        original.headers.Authorization = `Bearer ${data.access}`;
+        return api(original);
+      } catch {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
 export const authApi = {
   login: (username, password) => api.post('/auth/login/', { username, password }),
   me: () => api.get('/auth/me/'),
