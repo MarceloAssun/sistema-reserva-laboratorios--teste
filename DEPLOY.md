@@ -1,53 +1,80 @@
 # Deploy
 
-O repositório inclui `render.yaml` para backend/banco e `frontend/vercel.json` para o frontend. Nenhum serviço é criado automaticamente até o blueprint/projeto ser conectado nos respectivos painéis.
+Para o TCC, a configuração recomendada é:
 
-## Arquitetura sugerida
+- frontend React na Vercel;
+- API Django e PostgreSQL na Railway.
 
-- Frontend React em Vercel ou serviço estático equivalente.
-- Django/DRF em serviço Python com HTTPS e processo WSGI (`config.wsgi`).
-- PostgreSQL gerenciado com backups e TLS.
+Essa separação evita manter um segundo processo web na Railway. O repositório inclui `backend/railway.json`, `render.yaml` e `frontend/vercel.json`; conectar o repositório a uma plataforma não cria serviços nas outras.
 
-## Backend
+> A Railway oferece crédito gratuito limitado, não hospedagem ilimitada gratuita. Configure um limite de uso no painel e acompanhe `Usage` para não gerar cobranças. O PostgreSQL também consome recursos enquanto está ativo.
 
-Defina `SECRET_KEY` forte, `DEBUG=False`, hosts/origens exatos e todas as variáveis `DB_*`. Instale `backend/requirements.txt`, execute `python manage.py migrate`, `python manage.py collectstatic --noinput` e inicie o servidor WSGI oferecido pela plataforma. Crie superusuário por console seguro, nunca em fixture.
+## 1. Backend e banco na Railway
 
-### Render
+1. Envie o repositório para o GitHub e crie um projeto na Railway a partir dele.
+2. Crie um serviço PostgreSQL no mesmo projeto.
+3. No serviço da API, configure:
+   - **Root Directory:** `/backend`;
+   - **Config File Path:** `/backend/railway.json`.
+4. Gere um domínio público para a API em **Settings → Networking**.
+5. Adicione as variáveis abaixo ao serviço da API:
 
-1. Envie o repositório para o GitHub.
-2. No Render, crie um Blueprint a partir de `render.yaml`.
-3. Preencha as variáveis marcadas com `sync: false`:
-   - `ALLOWED_HOSTS`: hostname do backend, sem `https://`;
-   - `CORS_ALLOWED_ORIGINS`: URL HTTPS completa da Vercel;
-   - `CSRF_TRUSTED_ORIGINS`: a mesma URL HTTPS do frontend.
-4. O blueprint gera `SECRET_KEY`, conecta `DATABASE_URL`, executa migrations, coleta estáticos e inicia Gunicorn.
-5. Após o primeiro deploy, crie o superusuário no Shell: `python backend/manage.py createsuperuser`.
+```env
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+SECRET_KEY=gere-uma-chave-longa-e-aleatoria
+DEBUG=False
+CORS_ALLOWED_ORIGINS=https://seu-frontend.vercel.app
+CSRF_TRUSTED_ORIGINS=https://seu-frontend.vercel.app
+SECURE_SSL_REDIRECT=True
+SECURE_HSTS_SECONDS=0
+LOG_LEVEL=INFO
+```
 
-O endpoint público `GET /api/health/` valida a aplicação e a conexão com o banco e é usado pelo health check do Render.
+`RAILWAY_PUBLIC_DOMAIN` é fornecida automaticamente pela plataforma e adicionada a `ALLOWED_HOSTS` pela aplicação. Se usar domínio próprio, inclua-o manualmente em `ALLOWED_HOSTS`.
 
-Antes de liberar, rode `python manage.py check --deploy` e os testes. Restrinja o banco à rede do backend, habilite backups e mantenha logs sem tokens ou senhas.
+O arquivo `railway.json` instala as dependências, coleta os arquivos estáticos, executa as migrations antes da publicação, inicia o Gunicorn e verifica `GET /api/health/`. Um único worker com duas threads reduz o consumo para este projeto pequeno.
 
-## Frontend
+Depois do primeiro deploy, abra um shell da API e crie o administrador:
 
-Configure `VITE_API_URL=https://api.seu-dominio/api`, execute `npm ci` e `npm run build`, e publique `frontend/dist`. Configure fallback de SPA para `index.html` e HTTPS.
+```bash
+python manage.py createsuperuser
+```
 
-### Vercel
+Não execute `seed_demo` em produção com uma senha real. Se os dados fictícios forem necessários na apresentação, use uma senha descartável e remova os usuários depois.
 
-1. Importe o mesmo repositório e use `frontend` como Root Directory.
-2. Configure `VITE_API_URL` com a URL final do backend acrescida de `/api`.
-3. Faça o deploy. `frontend/vercel.json` configura build, saída `dist`, fallback do React Router, cache dos assets e cabeçalhos básicos.
-4. Volte ao Render e preencha CORS/CSRF com a URL criada pela Vercel; então faça novo deploy do backend.
+## 2. Frontend na Vercel
 
-## CORS e segurança
+1. Importe o mesmo repositório na Vercel.
+2. Use `frontend` como **Root Directory**.
+3. Configure a variável abaixo, usando o domínio público da API:
 
-`CORS_ALLOWED_ORIGINS` deve conter somente a URL HTTPS real do frontend. Configure cabeçalhos seguros e proxy HTTPS na plataforma. Tokens permanecem no armazenamento do navegador nesta implementação; para um ambiente de maior risco, a evolução recomendada é refresh token em cookie HttpOnly/Secure com proteção CSRF.
+```env
+VITE_API_URL=https://seu-backend.up.railway.app/api
+```
 
-Comece com `SECURE_HSTS_SECONDS=0`. Depois de confirmar que todos os domínios funcionam exclusivamente por HTTPS, altere para `31536000`. Não ative HSTS antecipadamente em domínio que ainda precise responder por HTTP.
+4. Faça o deploy. `frontend/vercel.json` configura o build, a pasta `dist`, o fallback do React Router e os cabeçalhos básicos.
+5. Copie a URL final da Vercel para `CORS_ALLOWED_ORIGINS` e `CSRF_TRUSTED_ORIGINS` na Railway e redeploye a API.
 
-## Checklist
+## 3. Controle de custo
 
-- Migrations e testes passaram no banco PostgreSQL de homologação.
-- `DEBUG=False`, segredo e credenciais estão no cofre da plataforma.
-- Hosts, CORS e URL da API usam os domínios finais.
-- Arquivos estáticos, HTTPS, logs, backups e monitoramento estão ativos.
-- Fluxo Aluno → Professor → Administrador foi validado em homologação.
+- Ative o limite de uso/cobrança disponível no workspace da Railway antes do deploy.
+- Consulte **Usage** depois de algumas horas e novamente antes da apresentação.
+- Mantenha somente uma réplica e não adicione Redis, workers ou outros serviços para este TCC.
+- Se a conta permitir Serverless/App Sleeping, habilite-o para a API; a primeira requisição após inatividade poderá ser mais lenta.
+- Desative ou remova os serviços depois da banca caso não precise mais deles. Exporte antes qualquer dado que queira preservar.
+
+## 4. Validação
+
+Antes de apresentar, confirme:
+
+- `https://seu-backend.up.railway.app/api/health/` retorna `{"status":"ok","database":"ok"}`;
+- login, refresh do token e permissões dos três perfis funcionam;
+- uma reserva pode ser solicitada, aprovada e consultada;
+- `DEBUG=False` e nenhum segredo foi versionado;
+- o banco possui backup ou ao menos um `pg_dump` recente, se os dados forem importantes.
+
+Comece com `SECURE_HSTS_SECONDS=0`. Somente altere para `31536000` depois de confirmar que todos os domínios funcionam exclusivamente por HTTPS.
+
+## Alternativa Render
+
+O `render.yaml` foi preservado como alternativa. Não conecte simultaneamente Render e Railway ao mesmo banco sem uma necessidade clara, pois isso duplica serviços e pode aumentar consumo ou causar deploys concorrentes.

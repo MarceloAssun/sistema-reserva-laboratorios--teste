@@ -42,8 +42,10 @@ ALLOWED_HOSTS = [
     for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
     if host.strip()
 ]
-if os.getenv('RENDER_EXTERNAL_HOSTNAME'):
-    ALLOWED_HOSTS.append(os.environ['RENDER_EXTERNAL_HOSTNAME'])
+for platform_hostname_variable in ('RENDER_EXTERNAL_HOSTNAME', 'RAILWAY_PUBLIC_DOMAIN'):
+    platform_hostname = os.getenv(platform_hostname_variable)
+    if platform_hostname and platform_hostname not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(platform_hostname)
 
 
 # Application definition
