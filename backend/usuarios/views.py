@@ -1,10 +1,15 @@
 from django.contrib.auth.models import User
-from rest_framework import mixins, permissions, viewsets
+from rest_framework import generics, mixins, permissions, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from reservas.permissions import IsAdminGroup
-from .serializers import UserSerializer, UserUpdateSerializer
+from .serializers import RegisterSerializer, UserSerializer, UserUpdateSerializer
+
+
+class RegisterView(generics.CreateAPIView):
+    serializer_class = RegisterSerializer
+    permission_classes = (permissions.AllowAny,)
 
 
 class CurrentUserView(APIView):

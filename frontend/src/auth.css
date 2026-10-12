@@ -1,0 +1,41 @@
+.register-form {
+  max-width: 520px;
+  padding: 32px 0;
+}
+
+.register-form h2 {
+  margin-bottom: 24px;
+}
+
+.register-form label {
+  margin-bottom: 14px;
+}
+
+.auth-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.auth-link {
+  padding: 0;
+  background: transparent;
+  color: var(--teal);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.primary:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+@media (max-width: 800px) {
+  .auth-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .register-form {
+    padding: 28px 0;
+  }
+}

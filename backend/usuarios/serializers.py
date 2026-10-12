@@ -1,4 +1,5 @@
 from django.contrib.auth.models import Group, User
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 
@@ -7,6 +8,49 @@ PERFIS = {
     'PROFESSOR': 'Professores',
     'ADMINISTRADOR': 'Administradores',
 }
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+    password_confirm = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    class Meta:
+        model = User
+        fields = ('username', 'first_name', 'last_name', 'email', 'password', 'password_confirm')
+        extra_kwargs = {
+            'email': {'required': True},
+            'first_name': {'required': True},
+        }
+
+    def validate_username(self, value):
+        value = value.strip()
+        if User.objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError('Este nome de usuário já está em uso.')
+        return value
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError('Este e-mail já está cadastrado.')
+        return value
+
+    def validate(self, attrs):
+        if attrs['password'] != attrs.pop('password_confirm'):
+            raise serializers.ValidationError({'password_confirm': 'As senhas não coincidem.'})
+        candidate = User(
+            username=attrs.get('username'),
+            first_name=attrs.get('first_name', ''),
+            last_name=attrs.get('last_name', ''),
+            email=attrs.get('email', ''),
+        )
+        validate_password(attrs['password'], user=candidate)
+        return attrs
+
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        user = User.objects.create_user(password=password, **validated_data)
+        user.groups.add(Group.objects.get_or_create(name=PERFIS['ALUNO'])[0])
+        return user
 
 
 class UserSerializer(serializers.ModelSerializer):

@@ -80,6 +80,7 @@ Abra `http://localhost:5173`; a API local padrão é `http://127.0.0.1:8000/api`
 | Método | URL | Perfil | Descrição |
 |---|---|---|---|
 | POST | `/api/auth/login/` | Público | Obtém access/refresh JWT |
+| POST | `/api/auth/register/` | Público | Cria uma conta exclusivamente com perfil Aluno |
 | POST | `/api/auth/refresh/` | Token refresh | Renova access token |
 | GET | `/api/auth/me/` | Autenticado | Usuário e perfil atual |
 | GET | `/api/laboratorios/` | Autenticado | Lista laboratórios |
