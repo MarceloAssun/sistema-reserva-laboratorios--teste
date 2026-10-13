@@ -50,6 +50,9 @@ class ReservaAPITests(TestCase):
         self.lab.save()
         self.assertEqual(self.criar().status_code, 400)
 
+    def test_administrador_nao_cria_reserva_em_nome_de_professor(self):
+        self.assertEqual(self.criar(self.admin).status_code, 403)
+
     def test_visibilidade_por_perfil(self):
         self.reserva()
         self.reserva(self.outro, '10:00', '12:00')
@@ -81,6 +84,21 @@ class ReservaAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         reserva.refresh_from_db()
         self.assertEqual(reserva.status, 'CANCELADA')
+
+    def test_professor_nao_acessa_nem_cancela_reserva_de_outro_professor(self):
+        reserva = self.reserva(professor=self.outro)
+        self.client.force_authenticate(self.professor)
+
+        self.assertEqual(
+            self.client.get(f'/api/reservas/{reserva.pk}/').status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.post(f'/api/reservas/{reserva.pk}/cancelar/').status_code,
+            404,
+        )
+        reserva.refresh_from_db()
+        self.assertEqual(reserva.status, 'PENDENTE')
 
     def test_reserva_nao_aceita_patch_generico(self):
         reserva = self.reserva()
