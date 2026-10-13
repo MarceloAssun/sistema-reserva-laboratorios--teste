@@ -72,6 +72,30 @@ class ReservaAPITests(TestCase):
         terceira.refresh_from_db()
         self.assertEqual(terceira.status, 'CANCELADA')
 
+    def test_administrador_cancela_reserva_aprovada(self):
+        reserva = self.reserva(status='APROVADA')
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(f'/api/reservas/{reserva.pk}/cancelar/')
+
+        self.assertEqual(response.status_code, 200)
+        reserva.refresh_from_db()
+        self.assertEqual(reserva.status, 'CANCELADA')
+
+    def test_reserva_nao_aceita_patch_generico(self):
+        reserva = self.reserva()
+        self.client.force_authenticate(self.professor)
+
+        response = self.client.patch(
+            f'/api/reservas/{reserva.pk}/',
+            {'status': 'APROVADA', 'observacao': 'Alterada'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 405)
+        reserva.refresh_from_db()
+        self.assertEqual((reserva.status, reserva.observacao), ('PENDENTE', 'Aula'))
+
     def test_disponibilidade_so_mostra_aprovadas(self):
         aprovada = self.reserva(status='APROVADA')
         self.reserva(inicio='10:00', fim='11:00', status='REJEITADA')

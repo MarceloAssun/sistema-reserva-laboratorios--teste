@@ -14,7 +14,7 @@ from .services import aprovar_reserva, cancelar_reserva, rejeitar_reserva
 
 class ReservaViewSet(viewsets.ModelViewSet):
 	serializer_class = ReservaSerializer
-	http_method_names = ('get', 'post', 'patch', 'head', 'options')
+	http_method_names = ('get', 'post', 'head', 'options')
 
 	def get_queryset(self):
 		queryset = Reserva.objects.select_related('laboratorio', 'professor').order_by('-data', '-hora_inicio')
