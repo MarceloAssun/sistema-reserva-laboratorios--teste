@@ -7,6 +7,18 @@ from .permissions import user_in_group
 from .services import reservas_aprovadas_conflitantes
 
 
+class AgendaReservaSerializer(serializers.ModelSerializer):
+    laboratorio_nome = serializers.CharField(source='laboratorio.nome', read_only=True)
+    laboratorio_bloco = serializers.CharField(source='laboratorio.bloco', read_only=True)
+
+    class Meta:
+        model = Reserva
+        fields = (
+            'id', 'laboratorio', 'laboratorio_nome', 'laboratorio_bloco',
+            'data', 'hora_inicio', 'hora_fim',
+        )
+
+
 class ReservaSerializer(serializers.ModelSerializer):
     laboratorio_nome = serializers.CharField(source='laboratorio.nome', read_only=True)
     laboratorio_detalhes = LaboratorioSerializer(source='laboratorio', read_only=True)

@@ -1,0 +1,142 @@
+.calendar-toolbar {
+  display: grid;
+  grid-template-columns: auto 1fr minmax(210px, 280px);
+  align-items: end;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.calendar-toolbar > strong {
+  align-self: center;
+  text-align: center;
+}
+
+.calendar-toolbar label {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.calendar-toolbar select {
+  display: block;
+  width: 100%;
+  margin-top: 7px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+}
+
+.calendar-nav {
+  display: flex;
+  gap: 6px;
+}
+
+.calendar-nav button {
+  min-height: 39px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(145px, 1fr));
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.calendar-day {
+  min-height: 390px;
+  border-right: 1px solid var(--line);
+}
+
+.calendar-day:last-child {
+  border-right: 0;
+}
+
+.calendar-day > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid var(--line);
+  background: #fbfcfd;
+}
+
+.calendar-day > header span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.calendar-day > header b {
+  font: 700 20px Syne, sans-serif;
+}
+
+.calendar-day.today > header {
+  background: var(--mint);
+  color: var(--teal);
+}
+
+.calendar-events {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 10px;
+}
+
+.calendar-event {
+  display: grid;
+  gap: 5px;
+  padding: 11px;
+  border-left: 3px solid var(--orange);
+  background: #fff4ed;
+}
+
+.calendar-event time,
+.calendar-event small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.calendar-event b {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.calendar-empty {
+  padding: 12px 4px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+@media (max-width: 800px) {
+  .calendar-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-toolbar > strong {
+    order: -1;
+    text-align: left;
+  }
+
+  .calendar-grid {
+    grid-template-columns: 1fr;
+    border: 0;
+    background: transparent;
+  }
+
+  .calendar-day {
+    min-height: 0;
+    margin-bottom: 12px;
+    border: 1px solid var(--line);
+    background: #fff;
+  }
+}

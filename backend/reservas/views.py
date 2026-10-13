@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils.dateparse import parse_date
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -8,7 +9,7 @@ from rest_framework.views import APIView
 from laboratorios.models import Laboratorio
 from .models import Reserva
 from .permissions import IsAdminGroup, IsAdminOrOwner, IsProfessorGroup, is_admin
-from .serializers import ReservaSerializer
+from .serializers import AgendaReservaSerializer, ReservaSerializer
 from .services import aprovar_reserva, cancelar_reserva, rejeitar_reserva
 
 
@@ -91,3 +92,26 @@ class DisponibilidadeView(APIView):
 			'data': data,
 			'reservas': ReservaSerializer(reservas, many=True).data,
 		})
+
+
+class AgendaView(APIView):
+	permission_classes = (permissions.IsAuthenticated,)
+
+	def get(self, request):
+		data_inicio = parse_date(request.query_params.get('data_inicio', ''))
+		data_fim = parse_date(request.query_params.get('data_fim', ''))
+		if not data_inicio or not data_fim:
+			raise ValidationError({'detail': 'Informe data_inicio e data_fim no formato AAAA-MM-DD.'})
+		if data_fim < data_inicio:
+			raise ValidationError({'data_fim': 'A data final deve ser igual ou posterior à inicial.'})
+		if (data_fim - data_inicio).days > 31:
+			raise ValidationError({'data_fim': 'Consulte no máximo 32 dias por vez.'})
+
+		reservas = Reserva.objects.select_related('laboratorio').filter(
+			status=Reserva.Status.APROVADA,
+			data__range=(data_inicio, data_fim),
+		).order_by('data', 'hora_inicio', 'laboratorio__nome')
+		laboratorio = request.query_params.get('laboratorio')
+		if laboratorio:
+			reservas = reservas.filter(laboratorio_id=laboratorio)
+		return Response(AgendaReservaSerializer(reservas, many=True).data)

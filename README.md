@@ -86,6 +86,7 @@ Abra `http://localhost:5173`; a API local padrão é `http://127.0.0.1:8000/api`
 | GET | `/api/laboratorios/` | Autenticado | Lista laboratórios |
 | POST/PATCH | `/api/laboratorios/`, `/api/laboratorios/{id}/` | Administrador | Cadastra/edita/ativa |
 | GET | `/api/laboratorios/{id}/disponibilidade/?data=AAAA-MM-DD` | Autenticado | Ocupações aprovadas |
+| GET | `/api/agenda/?data_inicio=AAAA-MM-DD&data_fim=AAAA-MM-DD` | Autenticado | Calendário de ocupações aprovadas |
 | GET | `/api/reservas/` | Professor/Admin | Histórico visível e filtros |
 | POST | `/api/reservas/` | Professor | Cria solicitação pendente |
 | POST | `/api/reservas/{id}/aprovar/` | Administrador | Aprova ou retorna 409 em conflito |

@@ -31,9 +31,9 @@ class ReservaAPITests(TestCase):
         payload.update(changes)
         return self.client.post('/api/reservas/', payload, format='json')
 
-    def reserva(self, professor=None, inicio='08:00', fim='10:00', status='PENDENTE'):
+    def reserva(self, professor=None, inicio='08:00', fim='10:00', status='PENDENTE', laboratorio=None):
         return Reserva.objects.create(
-            laboratorio=self.lab, professor=professor or self.professor,
+            laboratorio=laboratorio or self.lab, professor=professor or self.professor,
             data=self.data, hora_inicio=inicio, hora_fim=fim,
             observacao='Aula', status=status,
         )
@@ -121,6 +121,46 @@ class ReservaAPITests(TestCase):
         response = self.client.get(f'/api/laboratorios/{self.lab.pk}/disponibilidade/?data={self.data}')
         self.assertEqual(response.status_code, 200)
         self.assertEqual([item['id'] for item in response.data['reservas']], [aprovada.pk])
+
+    def test_agenda_mostra_somente_aprovadas_no_periodo_sem_dados_pessoais(self):
+        aprovada = self.reserva(status='APROVADA')
+        self.reserva(inicio='10:00', fim='11:00', status='PENDENTE')
+        self.reserva(inicio='11:00', fim='12:00', status='REJEITADA')
+        self.client.force_authenticate(self.aluno)
+
+        response = self.client.get(
+            f'/api/agenda/?data_inicio={self.data}&data_fim={self.data}'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item['id'] for item in response.data], [aprovada.pk])
+        self.assertNotIn('professor', response.data[0])
+        self.assertNotIn('observacao', response.data[0])
+
+    def test_agenda_exige_autenticacao_e_periodo_valido(self):
+        self.client.force_authenticate(user=None)
+        self.assertEqual(self.client.get('/api/agenda/').status_code, 401)
+        self.client.force_authenticate(self.aluno)
+        self.assertEqual(self.client.get('/api/agenda/').status_code, 400)
+        self.assertEqual(
+            self.client.get(
+                f'/api/agenda/?data_inicio={self.data}&data_fim=2020-01-01'
+            ).status_code,
+            400,
+        )
+
+    def test_agenda_filtra_laboratorio(self):
+        outro_lab = Laboratorio.objects.create(nome='Laboratório 02', capacidade=15, bloco='B')
+        self.reserva(status='APROVADA')
+        esperada = self.reserva(laboratorio=outro_lab, inicio='10:00', fim='12:00', status='APROVADA')
+        self.client.force_authenticate(self.professor)
+
+        response = self.client.get(
+            f'/api/agenda/?data_inicio={self.data}&data_fim={self.data}&laboratorio={outro_lab.pk}'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item['id'] for item in response.data], [esperada.pk])
 
 
 class ConflitoTests(TestCase):
