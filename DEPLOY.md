@@ -1,4 +1,4 @@
-# Deploy
+# Deploy do LabHUB
 
 Para o TCC, a configuração recomendada é:
 

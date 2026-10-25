@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>LabHUB</title>
+  <rect width="64" height="64" rx="16" fill="#102a43"/>
+  <path d="M17 15v34h16" fill="none" stroke="#75d0b3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M35 15v34M35 32h12M47 15v34" fill="none" stroke="#ef9b67" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="35" cy="32" r="4" fill="#f8fcfa"/>
+</svg>

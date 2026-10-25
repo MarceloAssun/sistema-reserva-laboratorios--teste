@@ -1,8 +1,8 @@
-# Sistema de Reserva de Laboratórios
+# LabHUB — Gestão e Reserva de Laboratórios
 
 ## Sobre
 
-Aplicação full stack para consulta, solicitação, aprovação e acompanhamento de reservas de laboratórios acadêmicos. React consome exclusivamente a API REST Django; PostgreSQL é o banco do produto final.
+O LabHUB é uma aplicação full stack para consulta, solicitação, aprovação e acompanhamento de reservas de laboratórios acadêmicos. React consome exclusivamente a API REST Django; PostgreSQL é o banco do produto final.
 
 ## Objetivos e funcionalidades
 
