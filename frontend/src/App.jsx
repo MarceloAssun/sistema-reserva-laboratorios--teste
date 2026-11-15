@@ -59,7 +59,7 @@ function Header({ eyebrow, title, description }) { const now = new Date(); retur
 function Dashboard({ user, labs, reservations, setPage }) {
   const role = roleOf(user); const approved = reservations.filter((r) => r.status === 'APROVADA').length; const pending = reservations.filter((r) => r.status === 'PENDENTE').length;
   const stats = role === 'admin' ? [['Laboratórios ativos', labs.filter((l) => l.ativo).length, 'de ' + labs.length + ' cadastrados'], ['Solicitações pendentes', pending, 'aguardando análise'], ['Reservas aprovadas', approved, 'no sistema']] : role === 'professor' ? [['Minhas reservas', reservations.length, 'solicitações registradas'], ['Em análise', pending, 'aguardando resposta'], ['Aprovadas', approved, 'horários confirmados']] : [['Laboratórios disponíveis', labs.filter((l) => l.ativo).length, 'espaços ativos'], ['Blocos acadêmicos', new Set(labs.map((l) => l.bloco)).size, 'localizações'], ['Capacidade total', labs.reduce((sum, l) => sum + l.capacidade, 0), 'lugares disponíveis']];
-  return <><Header eyebrow="PAINEL DE CONTROLE" title={`Olá, ${user.name.split(' ')[0]}.`} description={role === 'admin' ? 'Acompanhe o movimento dos laboratórios hoje.' : 'Encontre o espaço certo para a sua próxima atividade.'} /><div className="stats">{stats.map(([label, value, hint]) => <div className="stat" key={label}><span>{label}</span><strong>{value}</strong><small>{hint}</small></div>)}</div><section className="section-heading"><div><span className="eyebrow">ACESSOS RÁPIDOS</span><h2>O que você precisa fazer?</h2></div></section><div className="quick-grid"><button onClick={() => setPage('laboratorios')}><b>Consultar laboratórios</b><span>Veja capacidade, bloco e situação dos espaços.</span><em>→</em></button><button onClick={() => setPage('disponibilidade')}><b>Ver disponibilidade</b><span>Confira horários já ocupados por laboratório.</span><em>→</em></button>{role === 'professor' && <button onClick={() => setPage('nova')}><b>Solicitar reserva</b><span>Envie um novo horário para análise.</span><em>→</em></button>}</div></>;
+  return <><Header eyebrow="PAINEL DE CONTROLE" title={`Olá, ${user.name.split(' ')[0]}.`} description={role === 'admin' ? 'Acompanhe o movimento dos laboratórios hoje.' : 'Encontre o espaço certo para a sua próxima atividade.'} /><div className="stats">{stats.map(([label, value, hint]) => <div className="stat" key={label}><span>{label}</span><strong>{value}</strong><small>{hint}</small></div>)}</div><DashboardWeek onOpenCalendar={() => setPage('agenda')} /><section className="section-heading"><div><span className="eyebrow">ACESSOS RÁPIDOS</span><h2>O que você precisa fazer?</h2></div></section><div className="quick-grid"><button onClick={() => setPage('laboratorios')}><b>Consultar laboratórios</b><span>Veja capacidade, bloco e situação dos espaços.</span><em>→</em></button><button onClick={() => setPage('disponibilidade')}><b>Ver disponibilidade</b><span>Confira horários já ocupados por laboratório.</span><em>→</em></button>{role === 'professor' && <button onClick={() => setPage('nova')}><b>Solicitar reserva</b><span>Envie um novo horário para análise.</span><em>→</em></button>}</div></>;
 }
 
 function Laboratories({ labs }) { return <><Header eyebrow="CATÁLOGO DE ESPAÇOS" title="Laboratórios" description="Consulte os ambientes disponíveis para atividades acadêmicas." /><div className="toolbar"><span>{labs.length} espaços cadastrados</span><input placeholder="Buscar por nome ou bloco" /></div><div className="lab-grid">{labs.map((lab) => <article className="lab-card" key={lab.id}><div className="lab-top"><span className="lab-icon">⌁</span><Status value={lab.ativo ? 'ATIVO' : 'INATIVO'} /></div><h3>{lab.nome}</h3><p>Bloco {lab.bloco}</p><div className="lab-meta"><span><b>{lab.capacidade}</b> lugares</span><span>Uso acadêmico</span></div></article>)}</div></>; }
@@ -106,6 +106,45 @@ function NewReservation({ labs, onCreated }) { const [form, setForm] = useState(
 
 const toISODate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const weekStart = (date) => { const result = new Date(date); const day = result.getDay(); result.setHours(0, 0, 0, 0); result.setDate(result.getDate() - (day === 0 ? 6 : day - 1)); return result; };
+const timeToMinutes = (time) => { const [hours, minutes] = time.slice(0, 5).split(':').map(Number); return (hours * 60) + minutes; };
+
+function placeWeekBookings(bookings) {
+  const columnEnds = [];
+  const placed = [...bookings].sort((a, b) => timeToMinutes(a.hora_inicio) - timeToMinutes(b.hora_inicio)).map((booking) => {
+    const start = timeToMinutes(booking.hora_inicio);
+    let column = columnEnds.findIndex((end) => end <= start);
+    if (column === -1) column = columnEnds.length;
+    columnEnds[column] = timeToMinutes(booking.hora_fim);
+    return { ...booking, column };
+  });
+  return placed.map((booking) => ({ ...booking, columnCount: Math.max(columnEnds.length, 1) }));
+}
+
+function DashboardWeek({ onOpenCalendar }) {
+  const [start, setStart] = useState(() => weekStart(new Date()));
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const days = Array.from({ length: 7 }, (_, index) => { const day = new Date(start); day.setDate(start.getDate() + index); return day; });
+  const bookingMinutes = bookings.flatMap((booking) => [timeToMinutes(booking.hora_inicio), timeToMinutes(booking.hora_fim)]);
+  const firstHour = Math.min(7, ...(bookingMinutes.length ? bookingMinutes.map((minutes) => Math.floor(minutes / 60)) : [7]));
+  const lastHour = Math.max(22, ...(bookingMinutes.length ? bookingMinutes.map((minutes) => Math.ceil(minutes / 60)) : [22]));
+  const rangeStart = firstHour * 60;
+  const rangeMinutes = (lastHour - firstHour) * 60;
+  const hours = Array.from({ length: lastHour - firstHour + 1 }, (_, index) => firstHour + index);
+  useEffect(() => {
+    const end = new Date(start); end.setDate(start.getDate() + 6);
+    setLoading(true); setError('');
+    api.get('/agenda/', { params: { data_inicio: toISODate(start), data_fim: toISODate(end) } })
+      .then(({ data }) => setBookings(data))
+      .catch(() => setError('Não foi possível carregar as reservas desta semana.'))
+      .finally(() => setLoading(false));
+  }, [start]);
+  const move = (amount) => setStart((current) => { const next = new Date(current); next.setDate(current.getDate() + amount); return next; });
+  const goToday = () => setStart(weekStart(new Date()));
+  const rangeLabel = `${days[0].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} — ${days[6].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+  return <section className="dashboard-week"><div className="dashboard-week-heading"><div><span className="eyebrow">AGENDA DA SEMANA</span><h2>Laboratórios reservados</h2><p>Reservas aprovadas posicionadas nos respectivos dias e horários.</p></div><div className="week-heading-actions"><div className="calendar-nav"><button type="button" onClick={() => move(-7)} aria-label="Semana anterior">←</button><button type="button" onClick={goToday}>Hoje</button><button type="button" onClick={() => move(7)} aria-label="Próxima semana">→</button></div><button className="text-button" type="button" onClick={onOpenCalendar}>Ver calendário completo</button></div></div><strong className="week-range">{rangeLabel}</strong>{error && <p className="error">{error}</p>}{loading ? <div className="week-loading">Carregando agenda...</div> : <div className="week-scroll"><div className="week-schedule"><div className="week-schedule-header"><span className="week-corner">Horário</span>{days.map((day) => { const iso = toISODate(day); const isToday = iso === toISODate(new Date()); return <div className={`week-day-heading${isToday ? ' today' : ''}`} key={iso}><span>{day.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}</span><b>{day.getDate()}</b></div>; })}</div><div className="week-schedule-body" style={{ '--week-hours': lastHour - firstHour }}><div className="week-time-axis">{hours.map((hour, index) => <span key={hour} style={{ top: `${(index / (hours.length - 1)) * 100}%` }}>{String(hour).padStart(2, '0')}:00</span>)}</div>{days.map((day) => { const iso = toISODate(day); const dayBookings = placeWeekBookings(bookings.filter((booking) => booking.data === iso)); return <div className="week-day-column" key={iso}>{hours.map((hour, index) => <span className="week-hour-line" key={hour} style={{ top: `${(index / (hours.length - 1)) * 100}%` }} />)}{dayBookings.map((booking) => { const startOffset = timeToMinutes(booking.hora_inicio) - rangeStart; const duration = timeToMinutes(booking.hora_fim) - timeToMinutes(booking.hora_inicio); const width = 100 / booking.columnCount; return <article className={`week-booking week-booking-${Number(booking.laboratorio) % 5}`} key={booking.id} style={{ top: `${(startOffset / rangeMinutes) * 100}%`, height: `${(duration / rangeMinutes) * 100}%`, left: `calc(${booking.column * width}% + 3px)`, width: `calc(${width}% - 6px)` }} title={`${booking.laboratorio_nome}: ${booking.hora_inicio.slice(0, 5)} às ${booking.hora_fim.slice(0, 5)}`}><time>{booking.hora_inicio.slice(0, 5)}–{booking.hora_fim.slice(0, 5)}</time><b>{booking.laboratorio_nome}</b><small>Bloco {booking.laboratorio_bloco}</small></article>; })}</div>; })}</div></div></div>}</section>;
+}
 
 function Calendar({ labs }) {
   const [start, setStart] = useState(() => weekStart(new Date()));
