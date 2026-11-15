@@ -208,6 +208,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': __import__('datetime').timedelta(minutes=30),
     'REFRESH_TOKEN_LIFETIME': __import__('datetime').timedelta(days=1),
+    'CHECK_REVOKE_TOKEN': True,
 }
 
 LOGGING = {

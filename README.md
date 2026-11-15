@@ -12,7 +12,7 @@ O LabHUB é uma aplicação full stack para consulta, solicitação, aprovação
 - Aprovação, rejeição e cancelamento lógico, com histórico preservado.
 - Prevenção transacional de sobreposição entre reservas aprovadas.
 - JWT, interfaces e autorização backend por grupos.
-- Filtros administrativos e gestão de perfis de usuários.
+- Filtros administrativos, gestão de perfis e redefinição segura de senhas.
 
 ## Perfis
 
@@ -93,6 +93,7 @@ Abra `http://localhost:5173`; a API local padrão é `http://127.0.0.1:8000/api`
 | POST | `/api/reservas/{id}/rejeitar/` | Administrador | Rejeita sem excluir |
 | POST | `/api/reservas/{id}/cancelar/` | Dono/Admin | Cancela sem excluir |
 | GET/PATCH | `/api/usuarios/`, `/api/usuarios/{id}/` | Administrador | Consulta e atribui perfil |
+| POST | `/api/usuarios/{id}/redefinir-senha/` | Administrador | Redefine a senha e invalida os tokens anteriores |
 
 Filtros de reservas: `status`, `laboratorio`, `professor` (admin), `data`, `data_inicio` e `data_fim`.
 

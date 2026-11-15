@@ -101,3 +101,20 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         instance.groups.remove(*grupos_perfil)
         instance.groups.add(Group.objects.get_or_create(name=PERFIS[perfil])[0])
         return instance
+
+
+class PasswordResetSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+    password_confirm = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        if attrs['password'] != attrs.pop('password_confirm'):
+            raise serializers.ValidationError({'password_confirm': 'As senhas não coincidem.'})
+        validate_password(attrs['password'], user=self.context['target_user'])
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.context['target_user']
+        user.set_password(self.validated_data['password'])
+        user.save(update_fields=('password',))
+        return user

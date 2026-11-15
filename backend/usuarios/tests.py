@@ -1,6 +1,7 @@
 from django.contrib.auth.models import Group, User
 from rest_framework import status
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import AccessToken
 
 
 class RegisterAPITests(APITestCase):
@@ -104,6 +105,17 @@ class ProfilePermissionTests(APITestCase):
                     ).status_code,
                     status.HTTP_403_FORBIDDEN,
                 )
+                self.assertEqual(
+                    self.client.post(
+                        f'/api/usuarios/{self.aluno.pk}/redefinir-senha/',
+                        {
+                            'password': 'NovaSenha-Segura-2026',
+                            'password_confirm': 'NovaSenha-Segura-2026',
+                        },
+                        format='json',
+                    ).status_code,
+                    status.HTTP_403_FORBIDDEN,
+                )
 
     def test_administrador_promove_aluno_para_professor(self):
         self.client.force_authenticate(self.admin)
@@ -132,3 +144,60 @@ class ProfilePermissionTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(self.admin.groups.filter(name='Administradores').exists())
+
+    def test_administrador_redefine_senha_e_invalida_token_anterior(self):
+        old_access_token = str(AccessToken.for_user(self.aluno))
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            f'/api/usuarios/{self.aluno.pk}/redefinir-senha/',
+            {
+                'password': 'NovaSenha-Segura-2026',
+                'password_confirm': 'NovaSenha-Segura-2026',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.aluno.refresh_from_db()
+        self.assertTrue(self.aluno.check_password('NovaSenha-Segura-2026'))
+        self.assertFalse(self.aluno.check_password('SenhaSegura-TCC-2026'))
+
+        self.client.force_authenticate(user=None)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {old_access_token}')
+        self.assertEqual(
+            self.client.get('/api/auth/me/').status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )
+
+    def test_redefinicao_rejeita_confirmacao_diferente(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            f'/api/usuarios/{self.aluno.pk}/redefinir-senha/',
+            {
+                'password': 'NovaSenha-Segura-2026',
+                'password_confirm': 'SenhaDiferente-2026',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('password_confirm', response.data)
+
+    def test_administrador_nao_redefine_senha_de_superusuario(self):
+        superuser = User.objects.create_superuser(username='root', password='SenhaSegura-TCC-2026')
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            f'/api/usuarios/{superuser.pk}/redefinir-senha/',
+            {
+                'password': 'NovaSenha-Segura-2026',
+                'password_confirm': 'NovaSenha-Segura-2026',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        superuser.refresh_from_db()
+        self.assertTrue(superuser.check_password('SenhaSegura-TCC-2026'))
