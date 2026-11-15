@@ -19,15 +19,13 @@ class LaboratorioViewSet(viewsets.ModelViewSet):
 
 	@action(detail=True, methods=('get',), permission_classes=(permissions.IsAuthenticated,))
 	def disponibilidade(self, request, pk=None):
-		from reservas.models import Reserva
-		from reservas.serializers import ReservaSerializer
+		from reservas.serializers import OcupacaoSerializer
+		from reservas.services import reservas_que_bloqueiam
 
 		data = request.query_params.get('data')
 		if not data:
 			raise ValidationError({'data': 'Informe a data no formato AAAA-MM-DD.'})
-		reservas = Reserva.objects.filter(
-			laboratorio=self.get_object(), data=data, status=Reserva.Status.APROVADA,
-		).order_by('hora_inicio')
+		reservas = reservas_que_bloqueiam(self.get_object(), data).select_related('laboratorio').order_by('hora_inicio')
 		inicio = request.query_params.get('hora_inicio')
 		fim = request.query_params.get('hora_fim')
 		if bool(inicio) != bool(fim):
@@ -39,5 +37,5 @@ class LaboratorioViewSet(viewsets.ModelViewSet):
 		return Response({
 			'laboratorio': self.get_object().pk, 'data': data,
 			'disponivel': not reservas.exists(),
-			'reservas': ReservaSerializer(reservas, many=True).data,
+			'reservas': OcupacaoSerializer(reservas, many=True).data,
 		})

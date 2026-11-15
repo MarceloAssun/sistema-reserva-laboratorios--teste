@@ -36,6 +36,15 @@ class Reserva(models.Model):
             raise ValidationError({'hora_fim': 'A hora final deve ser posterior à hora inicial.'})
         if not self.laboratorio.ativo:
             raise ValidationError({'laboratorio': 'O laboratório está inativo.'})
+        if self.status in (self.Status.PENDENTE, self.Status.APROVADA):
+            from .services import reservas_que_bloqueiam
+
+            conflito = reservas_que_bloqueiam(self.laboratorio, self.data).filter(
+                hora_inicio__lt=self.hora_fim,
+                hora_fim__gt=self.hora_inicio,
+            ).exclude(pk=self.pk)
+            if conflito.exists():
+                raise ValidationError({'hora_inicio': 'Já existe uma reserva pendente ou aprovada para este laboratório e horário.'})
 
     class Meta:
         ordering = ('-data', '-hora_inicio')

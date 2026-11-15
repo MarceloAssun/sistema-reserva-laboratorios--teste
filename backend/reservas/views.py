@@ -2,20 +2,31 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.dateparse import parse_date
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from laboratorios.models import Laboratorio
 from .models import Reserva
 from .permissions import IsAdminGroup, IsAdminOrOwner, IsProfessorGroup, is_admin
-from .serializers import AgendaReservaSerializer, ReservaSerializer
-from .services import aprovar_reserva, cancelar_reserva, rejeitar_reserva
+from .serializers import AgendaReservaSerializer, OcupacaoSerializer, ReservaSerializer
+from .services import aprovar_reserva, cancelar_reserva, rejeitar_reserva, reservas_que_bloqueiam
+
+
+class ConflitoReserva(APIException):
+	status_code = status.HTTP_409_CONFLICT
+	default_code = 'conflito_reserva'
 
 
 class ReservaViewSet(viewsets.ModelViewSet):
 	serializer_class = ReservaSerializer
 	http_method_names = ('get', 'post', 'head', 'options')
+
+	def perform_create(self, serializer):
+		try:
+			serializer.save()
+		except DjangoValidationError as exc:
+			raise ConflitoReserva(exc.messages[0]) from exc
 
 	def get_queryset(self):
 		queryset = Reserva.objects.select_related('laboratorio', 'professor').order_by('-data', '-hora_inicio')
@@ -82,15 +93,11 @@ class DisponibilidadeView(APIView):
 			laboratorio = Laboratorio.objects.get(pk=laboratorio_id)
 		except Laboratorio.DoesNotExist:
 			raise ValidationError({'laboratorio': 'Laboratório não encontrado.'})
-		reservas = Reserva.objects.filter(
-			laboratorio=laboratorio,
-			data=data,
-			status=Reserva.Status.APROVADA,
-		).order_by('hora_inicio')
+		reservas = reservas_que_bloqueiam(laboratorio, data).select_related('laboratorio').order_by('hora_inicio')
 		return Response({
 			'laboratorio': laboratorio.id,
 			'data': data,
-			'reservas': ReservaSerializer(reservas, many=True).data,
+			'reservas': OcupacaoSerializer(reservas, many=True).data,
 		})
 
 

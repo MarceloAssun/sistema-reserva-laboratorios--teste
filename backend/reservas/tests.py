@@ -53,6 +53,31 @@ class ReservaAPITests(TestCase):
     def test_administrador_nao_cria_reserva_em_nome_de_professor(self):
         self.assertEqual(self.criar(self.admin).status_code, 403)
 
+    def test_nao_cria_reserva_sobreposta_a_pendente_ou_aprovada(self):
+        for estado in ('PENDENTE', 'APROVADA'):
+            existente = self.reserva(professor=self.outro, status=estado)
+            for inicio, fim in (('07:00', '09:00'), ('08:00', '10:00'), ('09:00', '11:00'), ('07:00', '11:00')):
+                with self.subTest(estado=estado, inicio=inicio, fim=fim):
+                    resposta = self.criar(hora_inicio=inicio, hora_fim=fim)
+                    self.assertEqual(resposta.status_code, 409)
+                    self.assertIn('detail', resposta.data)
+                    self.assertEqual(Reserva.objects.count(), 1)
+            existente.delete()
+
+    def test_permite_intervalos_adjacentes_e_ignora_reservas_encerradas(self):
+        existente = self.reserva(status='APROVADA')
+        self.assertEqual(self.criar(hora_inicio='07:00', hora_fim='08:00').status_code, 201)
+        self.assertEqual(self.criar(hora_inicio='10:00', hora_fim='11:00').status_code, 201)
+        existente.status = 'CANCELADA'
+        existente.save(update_fields=('status',))
+        self.assertEqual(self.criar(hora_inicio='08:00', hora_fim='10:00').status_code, 201)
+
+    def test_conflito_considera_laboratorio_e_data(self):
+        self.reserva(status='APROVADA')
+        outro_lab = Laboratorio.objects.create(nome='Outro laboratório', capacidade=12, bloco='B')
+        self.assertEqual(self.criar(laboratorio=outro_lab.pk).status_code, 201)
+        self.assertEqual(self.criar(data=self.data + timedelta(days=1)).status_code, 201)
+
     def test_visibilidade_por_perfil(self):
         self.reserva()
         self.reserva(self.outro, '10:00', '12:00')
@@ -114,13 +139,22 @@ class ReservaAPITests(TestCase):
         reserva.refresh_from_db()
         self.assertEqual((reserva.status, reserva.observacao), ('PENDENTE', 'Aula'))
 
-    def test_disponibilidade_so_mostra_aprovadas(self):
+    def test_disponibilidade_bloqueia_pendentes_e_aprovadas_sem_expor_dados_pessoais(self):
         aprovada = self.reserva(status='APROVADA')
-        self.reserva(inicio='10:00', fim='11:00', status='REJEITADA')
+        pendente = self.reserva(inicio='10:00', fim='11:00', status='PENDENTE')
+        self.reserva(inicio='11:00', fim='12:00', status='REJEITADA')
+        self.reserva(inicio='12:00', fim='13:00', status='CANCELADA')
         self.client.force_authenticate(self.aluno)
-        response = self.client.get(f'/api/laboratorios/{self.lab.pk}/disponibilidade/?data={self.data}')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual([item['id'] for item in response.data['reservas']], [aprovada.pk])
+        for url in (
+            f'/api/laboratorios/{self.lab.pk}/disponibilidade/?data={self.data}',
+            f'/api/disponibilidade/?laboratorio={self.lab.pk}&data={self.data}',
+        ):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual([item['id'] for item in response.data['reservas']], [aprovada.pk, pendente.pk])
+                self.assertNotIn('professor', response.data['reservas'][0])
+                self.assertNotIn('observacao', response.data['reservas'][0])
 
     def test_agenda_mostra_somente_aprovadas_no_periodo_sem_dados_pessoais(self):
         aprovada = self.reserva(status='APROVADA')
@@ -189,3 +223,18 @@ class ConflitoTests(TestCase):
             nova = self.nova((8, 0), (10, 0))
             aprovar_reserva(nova)
             nova.delete()
+
+    def test_validacao_do_modelo_bloqueia_cadastro_manual_sobreposto(self):
+        tentativa = Reserva(
+            laboratorio=self.lab,
+            professor=self.professor,
+            data=self.data,
+            hora_inicio=time(9),
+            hora_fim=time(11),
+            status=Reserva.Status.PENDENTE,
+        )
+        with self.assertRaises(ValidationError):
+            tentativa.full_clean()
+
+        tentativa.hora_inicio = time(10)
+        tentativa.full_clean()

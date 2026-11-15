@@ -4,7 +4,7 @@ from rest_framework import serializers
 from laboratorios.serializers import LaboratorioSerializer
 from .models import Reserva
 from .permissions import user_in_group
-from .services import reservas_aprovadas_conflitantes
+from .services import criar_reserva
 
 
 class AgendaReservaSerializer(serializers.ModelSerializer):
@@ -17,6 +17,14 @@ class AgendaReservaSerializer(serializers.ModelSerializer):
             'id', 'laboratorio', 'laboratorio_nome', 'laboratorio_bloco',
             'data', 'hora_inicio', 'hora_fim',
         )
+
+
+class OcupacaoSerializer(serializers.ModelSerializer):
+    laboratorio_nome = serializers.CharField(source='laboratorio.nome', read_only=True)
+
+    class Meta:
+        model = Reserva
+        fields = ('id', 'laboratorio_nome', 'hora_inicio', 'hora_fim', 'status')
 
 
 class ReservaSerializer(serializers.ModelSerializer):
@@ -66,4 +74,4 @@ class ReservaSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        return Reserva.objects.create(professor=self.context['request'].user, **validated_data)
+        return criar_reserva(self.context['request'].user, **validated_data)

@@ -10,7 +10,7 @@ O LabHUB é uma aplicação full stack para consulta, solicitação, aprovação
 - Disponibilidade por laboratório, data e intervalo opcional.
 - Solicitações pendentes por professores.
 - Aprovação, rejeição e cancelamento lógico, com histórico preservado.
-- Prevenção transacional de sobreposição entre reservas aprovadas.
+- Prevenção transacional de novas solicitações sobrepostas a reservas pendentes ou aprovadas; intervalos adjacentes são permitidos.
 - JWT, interfaces e autorização backend por grupos.
 - Filtros administrativos, gestão de perfis e redefinição segura de senhas.
 
@@ -85,10 +85,11 @@ Abra `http://localhost:5173`; a API local padrão é `http://127.0.0.1:8000/api`
 | GET | `/api/auth/me/` | Autenticado | Usuário e perfil atual |
 | GET | `/api/laboratorios/` | Autenticado | Lista laboratórios |
 | POST/PATCH | `/api/laboratorios/`, `/api/laboratorios/{id}/` | Administrador | Cadastra/edita/ativa |
-| GET | `/api/laboratorios/{id}/disponibilidade/?data=AAAA-MM-DD` | Autenticado | Ocupações aprovadas |
+| GET | `/api/laboratorios/{id}/disponibilidade/?data=AAAA-MM-DD` | Autenticado | Horários bloqueados por solicitações pendentes ou reservas aprovadas |
+| GET | `/api/disponibilidade/?laboratorio={id}&data=AAAA-MM-DD` | Autenticado | Horários bloqueados para a tela de disponibilidade |
 | GET | `/api/agenda/?data_inicio=AAAA-MM-DD&data_fim=AAAA-MM-DD` | Autenticado | Calendário de ocupações aprovadas |
 | GET | `/api/reservas/` | Professor/Admin | Histórico visível e filtros |
-| POST | `/api/reservas/` | Professor | Cria solicitação pendente |
+| POST | `/api/reservas/` | Professor | Cria solicitação pendente; retorna 409 se o horário já estiver bloqueado |
 | POST | `/api/reservas/{id}/aprovar/` | Administrador | Aprova ou retorna 409 em conflito |
 | POST | `/api/reservas/{id}/rejeitar/` | Administrador | Rejeita sem excluir |
 | POST | `/api/reservas/{id}/cancelar/` | Dono/Admin | Cancela sem excluir |
